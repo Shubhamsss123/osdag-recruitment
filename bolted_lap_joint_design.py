@@ -1,3 +1,21 @@
+import math
+from is800_2007 import IS800_2007
+IS800_2007=IS800_2007()
+
+"""newly added code start"""
+import csv
+
+# Define the headers based on the keys of best_design
+headers = ["bolt_diameter", "bolt_grade", "number_of_bolts", "pitch_distance", "gauge_distance", "end_distance",
+           "edge_distance", "number_of_rows", "number_of_columns", "hole_diameter", "strength_of_connection",
+           "yield_strength_plate_1", "yield_strength_plate_2", "length_of_connection", "efficiency_of_connection"]
+
+# Open the CSV file in write mode initially to write the headers
+with open('designs1.csv', 'w', newline='') as csvfile:
+    writer = csv.DictWriter(csvfile, fieldnames=headers)
+    writer.writeheader()
+
+"""newly added code end """
 def design_lap_joint(P, w, t1, t2):
     """
     Design a bolted lap joint connecting two plates.
@@ -31,17 +49,20 @@ def design_lap_joint(P, w, t1, t2):
 
     # Initialize variables to store the best design
     best_design = None
-    min_length = float('inf')
-
+    # min_length = float('inf')
+    min_Utilization_ratio=0
+    n_effient_boults=1e6
     for d in d_list:
         for GB in GB_list:
             # Calculate the bolt strength
+            # print(f'diameter of bolt is {d} with Grade of boult is {GB}')
             bolt_fu, bolt_fy = calculate_bolt_strength(GB)
             
             # Calculate the shear strength of one bolt
             A_bolt = math.pi * (d / 2) ** 2  # Cross-sectional area of the bolt
-            V_b = IS800_2007.cl_10_3_3_bolt_shear_capacity(bolt_fy, A_bolt, A_bolt, 0, 0, 'Field')  # Shear capacity
+            V_b = IS800_2007.cl_10_3_3_bolt_shear_capacity(bolt_fy, A_bolt, A_bolt, 1, 0, 'Field')  # Shear capacity
             
+            # print(f'value of V_b is {V_b}')
             # Calculate the required number of bolts
             N_b = math.ceil(P_N / (V_b * 0.75))  # Using a safety factor of 1.33
             
@@ -62,9 +83,40 @@ def design_lap_joint(P, w, t1, t2):
             # Calculate the efficiency of the connection
             Utilization_ratio = P_N / (N_b * V_b * 0.75)  # Using a safety factor of 1.33
             
+
+            temp_design = {
+                    "bolt_diameter": d,
+                    "bolt_grade": GB,
+                    "number_of_bolts": N_b,
+                    "pitch_distance": p,
+                    "gauge_distance": g,
+                    "end_distance": e,
+                    "edge_distance": e,
+                    "number_of_rows": 1,  # Simple design assumption, can be improved
+                    "number_of_columns": N_b,  # One column for simplicity
+                    "hole_diameter": d + 2,  # Diameter of hole is slightly larger than the bolt
+                    "strength_of_connection": N_b * V_b * 0.75,  # Strength based on shear capacity
+                    "yield_strength_plate_1": fy_plate,
+                    "yield_strength_plate_2": fy_plate,
+                    "length_of_connection": length_of_connection,
+                    "efficiency_of_connection": Utilization_ratio
+                }
+            with open('designs1.csv', 'a', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=headers)
+                writer.writerow(temp_design)
             # Check if this design is better
-            if Utilization_ratio <= 1 and length_of_connection < min_length:
-                min_length = length_of_connection
+            # if Utilization_ratio <= 1 and length_of_connection < min_length:
+            if Utilization_ratio <= 1 and Utilization_ratio >= min_Utilization_ratio :
+                # min_length = length_of_connection
+                
+                
+                if min_Utilization_ratio==Utilization_ratio and n_effient_boults<N_b:
+                    continue
+
+
+                min_Utilization_ratio = Utilization_ratio
+                n_effient_boults=N_b
+
                 best_design = {
                     "bolt_diameter": d,
                     "bolt_grade": GB,
